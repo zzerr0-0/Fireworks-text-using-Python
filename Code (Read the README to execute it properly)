@@ -1,0 +1,121 @@
+"""
+Simple Fireworks Text Animation
+------------------------------
+Shows fireworks that explode into colorful sparks,
+which then gather to form the words "HAPPY BIRTHDAY", or whatever you want (btw change the symbols ">" )
+"""
+
+import pygame, random, math, colorsys
+
+> Setup:
+pygame.init()
+WIDTH, HEIGHT = 1200, 500
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("HAPPY BIRTHDAY!")
+clock = pygame.time.Clock()
+FPS = 60
+
+> Text you want to display
+MESSAGE = "HAPPY BIRTHDAY :)!"
+
+
+def hsv_color(h):
+    """Convert hue (0-1) into an RGB color (0-255) purr"""
+    r, g, b = colorsys.hsv_to_rgb(h, 1, 1)
+    return int(r*255), int(g*255), int(b*255)
+
+font = pygame.font.SysFont("papyrus", 90, bold=True)
+text_surface = font.render(MESSAGE, True, (255, 255, 255))
+text_rect = text_surface.get_rect(center=(WIDTH//2, HEIGHT//2))
+
+> Sample points from the text image
+points = []
+for x in range(0, text_rect.width, 6):       
+    for y in range(0, text_rect.height, 6):  
+        if text_surface.get_at((x, y)).a > 0:   
+            points.append((x + text_rect.left, y + text_rect.top))
+
+random.shuffle(points)  
+
+class Particle:
+    def __init__(self, x, y, target=None):
+        angle = random.uniform(0, math.pi*2)
+        speed = random.uniform(2, 6)
+        self.x, self.y = x, y
+        self.vx = math.cos(angle)*speed
+        self.vy = math.sin(angle)*speed
+        self.life = 100
+        self.color = hsv_color(random.random())
+        self.target = target
+
+    def update(self):
+        if self.target:
+            > move slowly toward the target point
+            tx, ty = self.target
+            self.x += (tx - self.x) * 0.05
+            self.y += (ty - self.y) * 0.05
+            self.vx *= 0.9
+            self.vy *= 0.9
+        else:
+            > for the free-flying spark
+            self.vy += 0.1  # gravity
+            self.x += self.vx
+            self.y += self.vy
+            self.life -= 1
+
+    def draw(self, surf):
+        if self.life > 0:
+            pygame.draw.circle(surf, self.color, (int(self.x), int(self.y)), 2)
+
+class Firework:
+    def __init__(self):
+        self.x = random.randint(100, WIDTH-100)
+        self.y = HEIGHT
+        self.vy = random.uniform(-8, -11)
+        self.exploded = False
+        self.particles = []
+
+    def update(self):
+        if not self.exploded:
+            self.y += self.vy
+            self.vy += 0.15  > gravity
+            if self.vy >= 0:   > time to boom
+                self.explode()
+        else:
+            for p in self.particles:
+                p.update()
+            self.particles = [p for p in self.particles if p.life > 0]
+
+    def explode(self):
+        self.exploded = True
+        for _ in range(50):
+            target = points.pop() if points else None
+            self.particles.append(Particle(self.x, self.y, target))
+
+    def draw(self, surf):
+        if not self.exploded:
+            pygame.draw.circle(surf, (255,255,255), (int(self.x), int(self.y)), 3)
+        for p in self.particles:
+            p.draw(surf)
+
+fireworks = []
+running = True
+while running:
+    clock.tick(FPS)
+    screen.fill((10, 10, 30))  > dark sky
+
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+
+    if random.random() < 0.04:
+        fireworks.append(Firework())
+
+    for f in fireworks:
+        f.update()
+        f.draw(screen)
+    fireworks = [f for f in fireworks if not (f.exploded and not f.particles)]
+
+    pygame.display.flip()
+
+pygame.quit()
